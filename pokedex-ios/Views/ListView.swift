@@ -4,7 +4,10 @@ struct ListView: View {
     @StateObject private var pokemonService = PokemonService()
     @State private var searchText = ""
 
-    private let gridItems = Array(repeating: GridItem(.flexible()), count: 2)
+    private let columns = [
+        GridItem(.flexible(), spacing: 12),
+        GridItem(.flexible(), spacing: 12)
+    ]
 
     private var filteredPokemon: [Pokemon] {
         if searchText.isEmpty {
@@ -31,12 +34,22 @@ struct ListView: View {
                     VStack(alignment: .leading, spacing: 16) {
                         headerView
 
-                        LazyVGrid(columns: gridItems, spacing: 16) {
-                            ForEach(filteredPokemon, id: \.name) { pok in
-                                ListItemView(pokemon: pok)
+                        LazyVGrid(
+                            columns: columns,
+                            spacing: 12,
+                            content: {
+                                ForEach(filteredPokemon.indices, id: \.self) { index in
+                                    let pokemon = filteredPokemon[index]
+                                    ListItemView(pokemon: pokemon)
+                                        .onAppear {
+                                            if index == filteredPokemon.count - 1 {
+                                                pokemonService.loadNextPokemon()
+                                            }
+                                        }
+                                }
                             }
-                        }
-                        .padding(.horizontal)
+                        )
+                        .padding(.horizontal, 12)
                     }
                     .padding(.top)
                 }
@@ -45,7 +58,7 @@ struct ListView: View {
         }
         .onAppear {
             if pokemonService.pokemon.isEmpty {
-                pokemonService.loadPokemon()
+                pokemonService.loadNextPokemon()
             }
         }
     }

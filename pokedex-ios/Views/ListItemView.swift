@@ -20,42 +20,59 @@ struct ListItemView: View {
                         .font(.headline)
                         .fontWeight(.bold)
                     Spacer()
-                    Text(String(pokemon.id))
+                    Text("#\(pokemon.id)")
                         .foregroundStyle(Color.black.opacity(0.2))
                         .fontWeight(.semibold)
                 }
+
                 HStack {
-                    VStack {
-                        // TODO: Type-Text iwie auslagern!
-                        Text(pokemon.types.first!)
-                            .padding(3)
-                            .padding(.horizontal, 6)
-                            .border(.bar, width: 0)
-                            .background(Color.white.opacity(0.2))
-                            .cornerRadius(30)
-                        Text(pokemon.types.count > 1 ? pokemon.types[1] : "")
-                            .padding(3)
-                            .padding(.horizontal, 6)
-                            .border(.bar, width: 0)
-                            .background(Color.white.opacity(0.2))
-                            .cornerRadius(30)
-                            .opacity(pokemon.types.count > 1 ? 1 : 0)
+                    VStack(alignment: .leading, spacing: 4) {
+                        ForEach(pokemon.types.prefix(2), id: \.self) { type in
+                            Text(type.capitalized)
+                                .fixedSize(horizontal: true, vertical: true)
+                                .padding(.vertical, 4)
+                                .padding(.horizontal, 8)
+                                .background(Color.white.opacity(0.2))
+                                .cornerRadius(20)
+                        }
                     }
-                    .foregroundColor(Color.white)
+                    .foregroundColor(.white)
                     .font(.caption2)
-                    
+
+                    Spacer()
+
                     ZStack {
                         Image("pokeball")
                             .resizable()
                             .offset(x: 35, y: 20)
                             .scaledToFit()
                             .opacity(0.08)
+                        AsyncImage(url: URL(string: pokemon.spriteUrl)) { phase in
+                            switch phase {
+                            case .empty:
+                                ProgressView()
+                                    .frame(width: 80, height: 80)
+                            case .success(let image):
+                                image
+                                    .resizable()
+                                    .scaledToFit()
+                                    .frame(width: 150, height: 150)
+                            case .failure:
+                                Image(systemName: "xmark")
+                                    .foregroundStyle(.red)
+                                    .frame(width: 80, height: 80)
+                            @unknown default:
+                                EmptyView()
+                            }
+                        }
+                        .offset(x: 10)
                     }
+                    .frame(width: 100, height: 90)
                 }
             }
             .padding(5)
         }
-        .background(Color.orange)
+        .background(TypeColor(rawValue: pokemon.types.first!.lowercased())?.color ?? .gray)
         .cornerRadius(12)
         .shadow(radius: 10, x: 0, y: 0)
     }

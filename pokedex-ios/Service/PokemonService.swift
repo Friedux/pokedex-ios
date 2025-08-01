@@ -9,44 +9,52 @@ import Combine
 import Foundation
 
 public class PokemonService: ObservableObject {
-    @Published var pokemon: [Pokemon] = []
 
-    private var requests: AnyCancellable?
-    private let urls: [URL] = (1...151).compactMap {
-        URL(string: "https://pokeapi.co/api/v2/pokemon/\($0)")
-    }
+    // MARK: Public
 
-    public func loadPokemon() {
+    @Published public var pokemon: [Pokemon] = []
+
+    public func loadNextPokemon() {
         print("[PokemonService] Starting to load Pokémon...")
-
-        testConnection() // Optional connection test
-        fetchPokemon()
+        fetchNextBatch()
     }
 
-    private func testConnection() {
-        let testURL = URL(string: "https://pokeapi.co/api/v2/pokemon/1")!
-        URLSession.shared.dataTask(with: testURL) { data, response, error in
-            if let error = error {
-                print("[Network Test] Connection failed: \(error.localizedDescription)")
-            } else if let data = data {
-                print("[Network Test] Connection successful. Received \(data.count) bytes.")
+    // MARK: Private
+
+    private var requests: Set<AnyCancellable> = []
+    private var currentIndex = 1
+    private let batchSize = 20
+    private let maxCount = 1025
+    private var isLoading = false
+
+    private func fetchNextBatch() {
+        guard !isLoading else { return }
+        isLoading = true
+
+        let endIndex = min(currentIndex + batchSize - 1, maxCount)
+        let urls: [URL] = stride(from: currentIndex, to: endIndex + 1, by: 1).compactMap {
+            URL(string: "https://pokeapi.co/api/v2/pokemon/\($0)")
+        }
+
+        Publishers.MergeMany(
+            urls.map {
+                pokemonPublisher(for: $0)
             }
-        }.resume()
-    }
-
-    private func fetchPokemon() {
-        requests = pokemonPublisher(for: urls)
-            .collect()
-            .receive(on: DispatchQueue.main)
-            .sink(receiveCompletion: { completion in
-                switch completion {
-                case .finished:
-                    print("[PokemonService] All Pokémon loaded successfully.")
-                }
-            }, receiveValue: { pokemons in
-                self.pokemon = pokemons.sorted(by: { $0.id < $1.id })
-                print("[PokemonService] Loaded \(self.pokemon.count) Pokémon.")
-            })
+        )
+        .collect()
+        .receive(on: DispatchQueue.main)
+        .sink(
+            receiveCompletion: { _ in
+                self.isLoading = false
+                self.currentIndex = endIndex + 1
+            },
+            receiveValue: { newPokemon in
+                self.pokemon.append(contentsOf: newPokemon)
+                print("[PokemonService] Loaded \(newPokemon.count) new Pokémon.")
+                self.pokemon.sort(by: { $0.id < $1.id })
+            }
+        )
+        .store(in: &requests)
     }
 
     private func pokemonPublisher(for urls: [URL]) -> AnyPublisher<Pokemon, Never> {
